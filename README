@@ -1,0 +1,5 @@
+
+First version of bokeh plotting with surveys.
+
+navigate into the directory and run:
+bokeh serve .
