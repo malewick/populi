@@ -161,10 +161,10 @@ class AnswersDistribution :
 
 		self.q_hist *= 100.
 		self.q_zeros = np.zeros(len(self.q_edges)-1)
-		self.q_hmax = max(self.q_hist)*1.1
+		self.q_hmax = max(self.q_hist)*1.5
 		self.q_xmax = max(self.q_edges)*1.1
 
-		self.q_fig = figure(plot_width=950,plot_height=430,tools="pan,wheel_zoom,box_select,reset",
+		self.q_fig = figure(plot_width=950,plot_height=430,tools="",
 				y_range=(0, self.q_hmax))
 
 		self.q_fig.quad( bottom=0,
@@ -186,7 +186,7 @@ class AnswersDistribution :
 		formatted_hist = [(' %04.2f%% ' % item) for item in self.q_hist]
 
 		new_labels=[]
-		x=[ edge+0.3 for edge in self.q_edges ]
+		x=[ edge+1./len(self.q_edges) for edge in self.q_edges ]
 		for i in range(len(self.q_hist)) :
 			new_labels.append( Label( x=x[i], y=self.q_hmax*1.0,
 					 text=formatted_hist[i],
@@ -199,25 +199,42 @@ class AnswersDistribution :
 
 
 
+
 	def set_plot_properties(self):
 		"""Set graphical properties of the answers distribution plot (bokeh figure)"""
 		ticks = [ edge+0.5 for edge in self.q_edges[:-1] ]
 		self.q_fig.xaxis.ticker = ticks
 		label_dict = {}
+		max_qkey_length=0
+		qkey_length_limit=25
+			
 		for t, k in zip(ticks,self.q_keys):
+			if len(k) > max_qkey_length:
+				max_qkey_length = len(k)
+			if len(k) > qkey_length_limit:
+				k = k[:23]+"..."
+			
 			label_dict[t] = k
+
 		self.q_fig.xaxis.formatter = FuncTickFormatter(code="""
 					var labels = %s;
 					return labels[tick];
 					""" % label_dict)
+		
+		if max_qkey_length > 10:
+			self.q_fig.xaxis.major_label_orientation = np.pi/10
+		if max_qkey_length > 20:
+			self.q_fig.xaxis.major_label_orientation = np.pi/8
 
+		self.q_fig.toolbar.logo = None
+		self.q_fig.toolbar_location = None
 
 		self.q_fig.xaxis.axis_line_width = 2
 		self.q_fig.xaxis.axis_line_color = "gray"
 		self.q_fig.xaxis.major_label_text_font_size = "16pt"
 		self.q_fig.xaxis.major_label_text_color = "black"
-		self.q_fig.x_range = Range1d( ticks[0]-1.0, ticks[-1]+1.0 )
-		self.q_fig.xaxis.bounds = ( ticks[0]-0.6, ticks[-1]+0.6 )
+		self.q_fig.x_range=Range1d(ticks[0]-max(0.2*ticks[-1],1.0), ticks[-1]+max(0.2*ticks[-1],1.0) )
+		self.q_fig.xaxis.bounds = (ticks[0]-max(0.1*ticks[-1],0.6), ticks[-1]+max(0.1*ticks[-1],0.6) )
 
 		self.q_fig.yaxis.axis_label = "Procent odpowiedzi (%)"
 		self.q_fig.yaxis.axis_label_text_font_size = "14pt"
@@ -267,9 +284,9 @@ class PlotInitAndLayout:
 
 		new_labels = []
 
-		x=[ edge+0.3 for edge in self.q1.q_edges ]
+		x=[ edge+1./len(self.q1.q_edges) for edge in self.q1.q_edges ]
 		for i in range(len(hhist1)) :
-			new_labels.append( Label( x=x[i], y=self.q1.q_hmax*0.94,
+			new_labels.append( Label( x=x[i], y=self.q1.q_hmax*0.93,
 					 text=formatted_hist[i],
 					 text_color='white', text_alpha=1.0,
 					 background_fill_color=TEST_COLOR, background_fill_alpha=1.0) )
@@ -281,9 +298,9 @@ class PlotInitAndLayout:
 		# --- tickers business --- 
 		def generic_ticker_change(source, dataframe, **kwargs):
 			self.q1 = AnswersDistribution(dataframe, **kwargs)
-			layout.children[1] = get_figure(self.q1)
+			layout.children[2] = get_figure(self.q1)
 			self.ad = AgeDistribution(source,dataframe, **kwargs)
-			layout.children[2] = get_figure(self.ad)
+			layout.children[3] = get_figure(self.ad)
 
 		# --- declaring widgets --- 
 		which_q="pyt_1"
@@ -326,9 +343,10 @@ class PlotInitAndLayout:
 		self.q1 = AnswersDistribution(pandas_dataframe,which_q)
 
 		# --- set up layout --- 
-		layout = column(row(self.ticker1,self.ticker2,self.ticker3),
+		layout = column(self.ticker1,
+				row(self.ticker2,self.ticker3, sizing_mode='scale_width'),
 				get_figure(self.q1),
-				get_figure(self.ad))
+				get_figure(self.ad), sizing_mode='scale_width')
 
 		# --- bokeh server ---    <- for standalone use only
 		curdoc().add_root(layout)
@@ -359,10 +377,11 @@ def process_data(dataframe):
 	data=dataframe.dropna(subset=['sex'])
 	data['age'] = pd.Series([calculate_age(item) for item in data["date_of_birth"]], index=data.index)
 	data['zeros'] = pd.Series([0 for item in data["date_of_birth"]], index=data.index)
+	data = data.loc[ data['age'] >= 18 ]
 	return data
 
 
-
+# now in repo: https://github.com/ksiazkowicz/populi
 
 
 #		###############
@@ -388,13 +407,30 @@ Q_TAGS = ['pyt_1','pyt_2','pyt_3']
 #Q_TAGS = ['pyt_1','pyt_2']
 
 # - tickers to be shown in the web applet 
-Q_TICKERS = ['Pytanie 1','Pytanie 2','Pytanie 3']
+Q_TICKERS = ['Pytanie 1',
+	     'Baaaaaaaaaaaaaardzoooo dłuuuugieeeeeeeeeeeeeeeeeeeeee Pytanie 2',
+	     'Pytanie 3']
 #Q_TICKERS = ['Pytanie 1','Pytanie 2']
 
 # - the list of answers for each of the questions present in the survey
-ANSWERS_LISTS = [ ["Nie","Trochę","Tak","No kurwa!"],
-		  ["key1","key2","key3"],
-		  ['a','b','c','d','e','f','g','h','i','j']  ]
+# there seems to be some limit on key length (!)
+ANSWERS_LISTS = [ ["Nie",
+		   "Trochę",
+		   "Tak",
+		   "No kurwa!"],
+		  ["key1key1key1key1key11111111111111111112222222222222222222223333333333333333333333333333",
+		   "key2key2key2key2key222222222222",
+		   "key3key3key3key3key333333333333"],
+		  ['aaaaaaaaaaaaaaaaaaaaa',
+		   'bbbbbbbbbbbbbbbbbbbbb',
+		   'ccccccccccccccccccccc',
+		   'ddddddddddddddddddddd',
+		   'eeeeeeeeeeeeeeeeeeeee',
+		   'fffffffffffffffffffff',
+		   'ggggggggggggggggggggg',
+		   'hhhhhhhhhhhhhhhhhhhhh',
+		   'iiiiiiiiiiiiiiiiiiiii',
+		   'jjjjjjjjjjjjjjjjjjjjj']  ]
 #ANSWERS_LISTS = [ ["Nie","Trochę","Tak","No kurwa!"],
 #		  ["key1","key2","key3"] ]
 
